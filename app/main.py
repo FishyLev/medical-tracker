@@ -1,0 +1,36 @@
+from fastapi import FastAPI
+
+from app.api.routes import chat, memory, users
+from app.core.config import get_settings
+from app.core.logging import setup_logging
+
+setup_logging()
+settings = get_settings()
+
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    debug=settings.debug,
+)
+
+
+@app.get("/", tags=["system"])
+def root() -> dict:
+    return {
+        "message": f"{settings.app_name} is running",
+        "version": settings.app_version,
+    }
+
+
+@app.get("/health", tags=["system"])
+def health() -> dict:
+    return {
+        "status": "ok",
+        "app_name": settings.app_name,
+        "version": settings.app_version,
+    }
+
+
+app.include_router(chat.router, prefix=settings.api_prefix)
+app.include_router(users.router, prefix=settings.api_prefix)
+app.include_router(memory.router, prefix=settings.api_prefix)
