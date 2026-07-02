@@ -3,9 +3,11 @@ from fastapi import FastAPI
 from app.api.routes import chat, memory, users
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.db.schema import init_db
 
 setup_logging()
 settings = get_settings()
+init_db()
 
 app = FastAPI(
     title=settings.app_name,
