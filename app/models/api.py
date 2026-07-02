@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
 from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class UserCreateRequest(BaseModel):
@@ -31,6 +32,29 @@ class ChatResponse(BaseModel):
     assistant_message: str
 
 
+class ConversationMessage(BaseModel):
+    id: int
+    user_id: int
+    session_id: str
+    role: str
+    message: str
+    created_at: str
+
+
+class ConversationSessionSummary(BaseModel):
+    session_id: str
+    message_count: int
+    first_message_at: str
+    last_message_at: str
+
+
 class MemoryResponse(BaseModel):
     user: UserResponse
-    conversations: list[dict]
+    sessions: list[ConversationSessionSummary]
+    conversations: list[ConversationMessage]
+
+
+class DeleteMemoryResponse(BaseModel):
+    user_id: int
+    deleted_messages: int
+    status: str

@@ -45,3 +45,46 @@ class ConversationRepository:
             ]
         finally:
             conn.close()
+
+    def get_session_summaries(self, user_id: int) -> list[dict]:
+        conn = get_connection()
+        try:
+            rows = conn.execute(
+                """
+                SELECT
+                    session_id,
+                    COUNT(*) AS message_count,
+                    MIN(created_at) AS first_message_at,
+                    MAX(created_at) AS last_message_at
+                FROM conversations
+                WHERE user_id = ?
+                GROUP BY session_id
+                ORDER BY MAX(created_at) DESC
+                """,
+                (user_id,),
+            ).fetchall()
+
+            return [
+                {
+                    "session_id": row["session_id"],
+                    "message_count": row["message_count"],
+                    "first_message_at": row["first_message_at"],
+                    "last_message_at": row["last_message_at"],
+                }
+                for row in rows
+            ]
+        finally:
+            conn.close()
+
+    def delete_user_conversations(self, user_id: int) -> int:
+        conn = get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM conversations WHERE user_id = ?",
+                (user_id,),
+            )
+            conn.commit()
+            return cursor.rowcount
+        finally:
+            conn.close()
