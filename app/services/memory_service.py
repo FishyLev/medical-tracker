@@ -1,3 +1,4 @@
+import re
 from fastapi import HTTPException
 
 from app.repositories.memory import MemoryRepository
@@ -34,14 +35,56 @@ class MemoryService:
             memory_type="user_profile",
         )
 
+    def _extract_facts(self, message: str) -> list[str]:
+        facts = []
+        text = message.strip()
+
+        patterns = [
+            r"\bmy name is ([A-Za-z ]+)",
+            r"\bi am (\d{1,3}) years old\b",
+            r"\bi prefer ([A-Za-z ,\-]+)",
+            r"\bi have ([A-Za-z ,\-]+)",
+            r"\bi am allergic to ([A-Za-z ,\-]+)",
+            r"\bi have a history of ([A-Za-z ,\-]+)",
+        ]
+
+        for pattern in patterns:
+            matches = re.findall(pattern, text, flags=re.IGNORECASE)
+            for match in matches:
+                value = match.strip()
+                if value:
+                    facts.append(f"User fact: {value}")
+
+        symptom_keywords = [
+            "fever", "headache", "cough", "cold", "vomiting", "nausea",
+            "body pain", "sore throat", "diarrhea", "fatigue", "rash"
+        ]
+
+        for keyword in symptom_keywords:
+            if keyword in text.lower():
+                facts.append(f"Symptom mentioned: {keyword}")
+
+        seen = set()
+        deduped = []
+        for fact in facts:
+            if fact not in seen:
+                seen.add(fact)
+                deduped.append(fact)
+
+        return deduped
+
     def remember_message(self, user_id: int, session_id: str, role: str, message: str) -> None:
-        text = f"{role}: {message}"
-        self.chroma_store.add_memory(
-            user_id=user_id,
-            content=text,
-            memory_type="conversation_message",
-            metadata={"session_id": session_id, "role": role},
-        )
+        if role != "user":
+            return
+
+        facts = self._extract_facts(message)
+        for fact in facts:
+            self.chroma_store.add_memory(
+                user_id=user_id,
+                content=fact,
+                memory_type="extracted_fact",
+                metadata={"session_id": session_id, "role": role},
+            )
 
     def search_relevant_memories(self, user_id: int, query: str) -> list[dict]:
         return self.chroma_store.search_memories(user_id=user_id, query=query, n_results=5)

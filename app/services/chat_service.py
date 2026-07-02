@@ -26,9 +26,41 @@ class ChatService:
         recent = messages[-limit:]
         return "\n".join([f"{m['role']}: {m['message']}" for m in recent])
 
-    def _build_semantic_memory_context(self, user_id: int, query: str) -> str:
-        memories = self.memory_service.search_relevant_memories(user_id=user_id, query=query)
+    def _get_relevant_memories(self, user_id: int, query: str) -> list[dict]:
+        return self.memory_service.search_relevant_memories(user_id=user_id, query=query)
+
+    def _build_semantic_memory_context(self, memories: list[dict]) -> str:
         return "\n".join([item["document"] for item in memories])
+
+    def _extract_symptoms(self, text: str) -> list[dict]:
+        symptom_keywords = [
+            "fever", "headache", "cough", "cold", "vomiting", "nausea",
+            "body pain", "sore throat", "diarrhea", "fatigue", "rash",
+            "chest pain", "shortness of breath"
+        ]
+        found = []
+        lower = text.lower()
+        for keyword in symptom_keywords:
+            if keyword in lower:
+                found.append({"name": keyword, "detected": True})
+        return found
+
+    def _classify_urgency(self, text: str) -> str:
+        lower = text.lower()
+        urgent_terms = [
+            "chest pain", "trouble breathing", "shortness of breath",
+            "seizure", "stroke", "suicidal", "uncontrolled bleeding"
+        ]
+        if any(term in lower for term in urgent_terms):
+            return "high"
+
+        medium_terms = [
+            "fever", "vomiting", "diarrhea", "severe pain", "rash"
+        ]
+        if any(term in lower for term in medium_terms):
+            return "medium"
+
+        return "low"
 
     def send_message(self, user_id: int, message: str, session_id: str | None = None) -> dict:
         user = self.user_service.get_user(user_id)
@@ -40,6 +72,7 @@ class ChatService:
             role="user",
             message=message,
         )
+
         self.memory_service.remember_message(
             user_id=user_id,
             session_id=active_session_id,
@@ -49,7 +82,8 @@ class ChatService:
 
         user_context = self._build_user_context(user)
         conversation_context = self._build_recent_conversation_context(user_id)
-        semantic_memory_context = self._build_semantic_memory_context(user_id, message)
+        memories = self._get_relevant_memories(user_id, message)
+        semantic_memory_context = self._build_semantic_memory_context(memories)
 
         assistant_message = self.llm_service.generate_medical_reply(
             user_message=message,
@@ -64,16 +98,15 @@ class ChatService:
             role="assistant",
             message=assistant_message,
         )
-        self.memory_service.remember_message(
-            user_id=user_id,
-            session_id=active_session_id,
-            role="assistant",
-            message=assistant_message,
-        )
 
         return {
             "user_id": user_id,
             "session_id": active_session_id,
             "user_message": message,
             "assistant_message": assistant_message,
+            "metadata": {
+                "urgency": self._classify_urgency(message),
+                "used_memory": len(memories) > 0,
+                "extracted_symptoms": self._extract_symptoms(message),
+            },
         }

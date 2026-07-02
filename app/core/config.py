@@ -9,11 +9,9 @@ class Settings(BaseSettings):
     debug: bool = True
     api_prefix: str = "/api"
 
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
-
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
+    gemini_timeout_ms: int = 30000
 
     sqlite_db_path: str = "app.db"
     chroma_persist_dir: str = "chroma_db"

@@ -25,11 +25,23 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
 
 
+class ExtractedSymptom(BaseModel):
+    name: str
+    detected: bool = True
+
+
+class ChatMetadata(BaseModel):
+    urgency: str
+    used_memory: bool
+    extracted_symptoms: list[ExtractedSymptom]
+
+
 class ChatResponse(BaseModel):
     user_id: int
     session_id: str
     user_message: str
     assistant_message: str
+    metadata: ChatMetadata
 
 
 class ConversationMessage(BaseModel):
