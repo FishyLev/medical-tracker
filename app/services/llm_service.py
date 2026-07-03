@@ -38,6 +38,7 @@ class LLMService:
         user_context: str,
         conversation_context: str,
         semantic_memory_context: str,
+        document_context: str = "",
     ) -> str:
         prompt = f"""
 {MEDICAL_SYSTEM_PROMPT}
@@ -51,10 +52,16 @@ Recent conversation context:
 Relevant long-term memory:
 {semantic_memory_context or 'None'}
 
+Uploaded medical documents:
+{document_context or 'None'}
+
 User message:
 {user_message}
 
 Respond as the medical assistant in plain text.
+If the uploaded documents are relevant, use them in your answer.
+If the documents are unclear or incomplete, say so.
+Do not claim certainty when the document text is ambiguous.
 """.strip()
 
         try:

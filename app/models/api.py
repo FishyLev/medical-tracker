@@ -1,7 +1,5 @@
 from typing import Optional
-
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel, EmailStr, Field
 
 class UserCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
@@ -70,3 +68,43 @@ class DeleteMemoryResponse(BaseModel):
     user_id: int
     deleted_messages: int
     status: str
+
+class DocumentUploadResponse(BaseModel):
+    document_id: int
+    user_id: int
+    filename: str
+    content_type: Optional[str] = None
+    extracted_chars: int
+    summary: Optional[str] = None
+    created_at: str
+
+
+class DocumentItem(BaseModel):
+    document_id: int
+    filename: str
+    content_type: Optional[str] = None
+    extracted_chars: int
+    summary: Optional[str] = None
+    created_at: str
+
+
+class DocumentListResponse(BaseModel):
+    user_id: int
+    documents: list[DocumentItem]
+
+class SignupRequest(BaseModel):
+    name: str
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=72)
+    age: Optional[int] = None
+    gender: Optional[str] = None
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=72)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user_id: int

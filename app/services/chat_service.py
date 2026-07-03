@@ -4,6 +4,7 @@ from app.repositories.conversations import ConversationRepository
 from app.services.llm_service import LLMService
 from app.services.memory_service import MemoryService
 from app.services.user_service import UserService
+from app.services.document_service import DocumentService
 
 
 class ChatService:
@@ -12,6 +13,7 @@ class ChatService:
         self.conversation_repository = ConversationRepository()
         self.memory_service = MemoryService()
         self.llm_service = LLMService()
+        self.document_service = DocumentService()
 
     def _build_user_context(self, user: dict) -> str:
         return (
@@ -84,12 +86,15 @@ class ChatService:
         conversation_context = self._build_recent_conversation_context(user_id)
         memories = self._get_relevant_memories(user_id, message)
         semantic_memory_context = self._build_semantic_memory_context(memories)
+        document_context = self.document_service.get_recent_document_context(user_id)
+        print("DOCUMENT CONTEXT >>>", repr(document_context))
 
         assistant_message = self.llm_service.generate_medical_reply(
             user_message=message,
             user_context=user_context,
             conversation_context=conversation_context,
             semantic_memory_context=semantic_memory_context,
+            document_context=document_context,
         )
 
         self.conversation_repository.add_message(
