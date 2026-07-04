@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from app.db.sqlite import get_connection
+from app.db.database import get_connection
 
 
 class ConversationRepository:

@@ -1,4 +1,4 @@
-from app.db.sqlite import get_connection
+from app.db.database import get_connection
 
 
 def init_db() -> None:
