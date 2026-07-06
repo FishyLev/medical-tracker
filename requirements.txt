@@ -16,6 +16,7 @@ colorama==0.4.6
 cryptography==49.0.0
 distro==1.9.0
 durationpy==0.10
+email-validator
 fastapi==0.139.0
 filelock==3.29.4
 flatbuffers==25.12.19
@@ -66,6 +67,7 @@ orjson==3.11.9
 ormsgpack==1.12.2
 overrides==7.7.0
 packaging==26.2
+passlib
 pluggy==1.6.0
 propcache==0.5.2
 protobuf==7.35.1
@@ -77,10 +79,12 @@ pydantic==2.13.4
 pydantic-settings==2.14.2
 pydantic_core==2.46.4
 Pygments==2.20.0
+pyjwt
 PyPika==0.51.1
 pyproject_hooks==1.2.0
 pytest==9.1.1
 python-dateutil==2.9.0.post0
+python-multipart
 python-dotenv==1.2.2
 PyYAML==6.0.3
 referencing==0.37.0
