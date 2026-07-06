@@ -1,10 +1,13 @@
+import logging
 import uuid
 
 from app.repositories.conversations import ConversationRepository
+from app.services.document_service import DocumentService
 from app.services.llm_service import LLMService
 from app.services.memory_service import MemoryService
 from app.services.user_service import UserService
-from app.services.document_service import DocumentService
+
+logger = logging.getLogger(__name__)
 
 
 class ChatService:
@@ -36,9 +39,19 @@ class ChatService:
 
     def _extract_symptoms(self, text: str) -> list[dict]:
         symptom_keywords = [
-            "fever", "headache", "cough", "cold", "vomiting", "nausea",
-            "body pain", "sore throat", "diarrhea", "fatigue", "rash",
-            "chest pain", "shortness of breath"
+            "fever",
+            "headache",
+            "cough",
+            "cold",
+            "vomiting",
+            "nausea",
+            "body pain",
+            "sore throat",
+            "diarrhea",
+            "fatigue",
+            "rash",
+            "chest pain",
+            "shortness of breath",
         ]
         found = []
         lower = text.lower()
@@ -50,14 +63,23 @@ class ChatService:
     def _classify_urgency(self, text: str) -> str:
         lower = text.lower()
         urgent_terms = [
-            "chest pain", "trouble breathing", "shortness of breath",
-            "seizure", "stroke", "suicidal", "uncontrolled bleeding"
+            "chest pain",
+            "trouble breathing",
+            "shortness of breath",
+            "seizure",
+            "stroke",
+            "suicidal",
+            "uncontrolled bleeding",
         ]
         if any(term in lower for term in urgent_terms):
             return "high"
 
         medium_terms = [
-            "fever", "vomiting", "diarrhea", "severe pain", "rash"
+            "fever",
+            "vomiting",
+            "diarrhea",
+            "severe pain",
+            "rash",
         ]
         if any(term in lower for term in medium_terms):
             return "medium"
@@ -87,7 +109,16 @@ class ChatService:
         memories = self._get_relevant_memories(user_id, message)
         semantic_memory_context = self._build_semantic_memory_context(memories)
         document_context = self.document_service.get_recent_document_context(user_id)
-        print("DOCUMENT CONTEXT >>>", repr(document_context))
+
+        logger.info(
+            "Generating assistant reply",
+            extra={
+                "user_id": user_id,
+                "session_id": active_session_id,
+                "used_memory": len(memories) > 0,
+                "has_document_context": bool(document_context and document_context.strip()),
+            },
+        )
 
         assistant_message = self.llm_service.generate_medical_reply(
             user_message=message,
