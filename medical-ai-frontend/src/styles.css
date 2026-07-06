@@ -214,14 +214,27 @@ button:disabled {
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(18, 34, 33, 0.95), rgba(14, 27, 26, 0.95));
   border: 1px solid var(--border);
-  color: var(--text);
+  color: #f5f7f7;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.16);
 }
 
 .message.user .bubble {
   background: linear-gradient(90deg, var(--primary), var(--secondary));
-  color: white;
+  color: #000000 !important;
   border-color: transparent;
+}
+
+.message.assistant .bubble {
+  color: #f5f7f7 !important;
+}
+
+.bubble p,
+.bubble span,
+.bubble div,
+.bubble li,
+.bubble strong,
+.bubble em {
+  color: inherit !important;
 }
 
 .bubble p {
@@ -240,7 +253,6 @@ button:disabled {
 
 .bubble strong {
   font-weight: 700;
-  color: inherit;
 }
 
 .composer {

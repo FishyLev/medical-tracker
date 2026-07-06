@@ -19,3 +19,10 @@ chroma_db/
 .idea/
 .DS_Store
 Thumbs.db
+__pycache__/
+*.pyc
+.venv/
+.env
+datasets/
+app.db
+chroma_db/
