@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -5,15 +6,22 @@ from app.api.routes import auth, chat, documents, memory, users
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.db.database import init_db
+from app.services.local_llm import load_local_model
 
 setup_logging()
 settings = get_settings()
 init_db()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    load_local_model()
+    yield
+
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     debug=settings.debug,
+    lifespan=lifespan,
 )
 
 allowed_origins = [

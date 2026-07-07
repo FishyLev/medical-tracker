@@ -5,3 +5,10 @@ chroma_db/
 .env
 node_modules/
 dist/
+__pycache__/
+*.pyc
+.venv/
+.env
+datasets/
+app.db
+chroma_db/

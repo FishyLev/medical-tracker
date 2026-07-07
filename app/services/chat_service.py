@@ -3,7 +3,7 @@ import uuid
 
 from app.repositories.conversations import ConversationRepository
 from app.services.document_service import DocumentService
-from app.services.llm_service import LLMService
+from app.services.local_llm import generate_response
 from app.services.memory_service import MemoryService
 from app.services.user_service import UserService
 
@@ -15,7 +15,6 @@ class ChatService:
         self.user_service = UserService()
         self.conversation_repository = ConversationRepository()
         self.memory_service = MemoryService()
-        self.llm_service = LLMService()
         self.document_service = DocumentService()
 
     def _build_user_context(self, user: dict) -> str:
@@ -86,6 +85,34 @@ class ChatService:
 
         return "low"
 
+    def _build_full_prompt(
+        self,
+        message: str,
+        user_context: str,
+        conversation_context: str,
+        semantic_memory_context: str,
+        document_context: str,
+    ) -> str:
+        parts = [
+            "User profile:",
+            user_context or "None",
+            "",
+            "Recent conversation:",
+            conversation_context or "None",
+            "",
+            "Relevant memories:",
+            semantic_memory_context or "None",
+            "",
+            "Document context:",
+            document_context or "None",
+            "",
+            "Current user message:",
+            message,
+            "",
+            "Respond as a cautious medical and mental health assistant. Provide general educational guidance only, avoid certain diagnosis, and recommend professional help when needed.",
+        ]
+        return "\n".join(parts)
+
     def send_message(self, user_id: int, message: str, session_id: str | None = None) -> dict:
         user = self.user_service.get_user(user_id)
         active_session_id = session_id or str(uuid.uuid4())
@@ -120,15 +147,24 @@ class ChatService:
             },
         )
 
-        assistant_message = self.llm_service.generate_medical_reply(
-            user_message=message,
+        full_prompt = self._build_full_prompt(
+            message=message,
             user_context=user_context,
             conversation_context=conversation_context,
             semantic_memory_context=semantic_memory_context,
             document_context=document_context,
         )
 
+        assistant_message = generate_response(full_prompt)
+
         self.conversation_repository.add_message(
+            user_id=user_id,
+            session_id=active_session_id,
+            role="assistant",
+            message=assistant_message,
+        )
+
+        self.memory_service.remember_message(
             user_id=user_id,
             session_id=active_session_id,
             role="assistant",
