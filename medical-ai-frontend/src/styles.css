@@ -377,7 +377,7 @@ button:disabled {
 
 .auth-brand h1 {
   margin: 0 0 8px;
-  font-family: 'rostex', 'chrome', serif !important;
+  font-family: 'Arial', 'Arial', serif !important;
   font-size: clamp(2rem, 4vw, 3rem);
   line-height: 0.95;
   letter-spacing: -0.05em;
@@ -390,7 +390,7 @@ button:disabled {
 .auth-brand p {
   margin: 0;
   color: #5b6470;
-  font-family: 'Corpta', var(--sans);
+  font-family: 'Arial', var(--sans);
   font-size: 0.82rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -990,4 +990,7 @@ body {
 .composer-inline input:focus {
   color: #f4fbfa !important;
   -webkit-text-fill-color: #f4fbfa !important;
+}
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
 }
