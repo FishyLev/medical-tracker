@@ -23,25 +23,38 @@ def chat(payload: ChatRequest) -> ChatResponse:
 
 @router.post("/stream")
 async def chat_stream(payload: ChatRequest):
-    result = chat_service.send_message(
-        user_id=payload.user_id,
-        message=payload.message,
-        session_id=payload.session_id,
-    )
-
     async def event_generator():
-        text = result["assistant_message"]
-        words = text.split()
+        try:
+            result = await asyncio.to_thread(
+                chat_service.send_message,
+                payload.user_id,
+                payload.message,
+                payload.session_id,
+            )
 
-        yield f"data: {json.dumps({'type': 'meta', 'session_id': result['session_id']})}\n\n"
+            text = result.get("assistant_message", "")
+            session_id = result.get("session_id")
 
-        partial = []
-        for word in words:
-            partial.append(word)
-            chunk = " ".join(partial)
-            yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
-            await asyncio.sleep(0.03)
+            yield f"data: {json.dumps({'type': 'meta', 'session_id': session_id})}\n\n"
 
-        yield f"data: {json.dumps({'type': 'done', 'payload': result})}\n\n"
+            chunk_size = 30
+            built = ""
+            for i in range(0, len(text), chunk_size):
+                chunk = text[i:i + chunk_size]
+                built += chunk
+                yield f"data: {json.dumps({'type': 'chunk', 'content': chunk, 'full_content': built})}\n\n"
+                await asyncio.sleep(0.02)
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+            yield f"data: {json.dumps({'type': 'done', 'payload': result})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )

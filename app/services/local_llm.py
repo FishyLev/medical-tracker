@@ -149,7 +149,7 @@ Assistant:
 """.strip()
 
 
-def call_ollama(prompt: str, temperature: float = 0.3, num_predict: int = 220) -> str:
+def call_ollama(prompt: str, temperature: float = 0.3, num_predict: int = 500) -> str:
     payload = {
         "model": OLLAMA_MODEL,
         "prompt": prompt,
@@ -160,13 +160,13 @@ def call_ollama(prompt: str, temperature: float = 0.3, num_predict: int = 220) -
         },
     }
 
-    response = requests.post(OLLAMA_URL, json=payload, timeout=120)
+    response = requests.post(OLLAMA_URL, json=payload, timeout=300)
     response.raise_for_status()
     data = response.json()
     return data.get("response", "").strip()
 
 
-def call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0.3, max_tokens: int = 220) -> str:
+def call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0.3, max_tokens: int = 500) -> str:
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
@@ -187,7 +187,7 @@ def call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0
         "max_tokens": max_tokens,
     }
 
-    response = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=120)
+    response = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=300)
     response.raise_for_status()
     data = response.json()
 
@@ -200,7 +200,7 @@ def call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0
 
 
 def generate_with_provider(system_prompt: str, context_label: str, context: str, user_message: str,
-                           temperature: float = 0.3, max_tokens: int = 220) -> str:
+                           temperature: float = 0.3, max_tokens: int = 500) -> str:
     combined_prompt = build_prompt(system_prompt, context_label, context, user_message)
 
     if LLM_PROVIDER == "ollama":
@@ -258,5 +258,5 @@ def generate_response(user_message: str) -> str:
         context=context,
         user_message=user_message,
         temperature=0.3,
-        max_tokens=220,
+        max_tokens=500,
     )

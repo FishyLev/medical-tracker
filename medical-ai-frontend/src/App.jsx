@@ -4,11 +4,29 @@ import {
   createUser,
   listDocuments,
   login,
-  sendMessage,
   signup,
   uploadDocument,
 } from "./services/api";
 import "./styles.css";
+
+const urgencyConfig = {
+  high: { label: "Get care now", className: "urgency-badge urgency-high" },
+  medium: { label: "See care soon", className: "urgency-badge urgency-medium" },
+  low: { label: "Self-care / routine", className: "urgency-badge urgency-low" },
+};
+
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
+function sanitizeAssistantContent(raw) {
+  if (!raw) return "";
+
+  return String(raw)
+    .replace(/\r\n/g, "\n")
+    .replace(/\n\s*[-*+]\s*$/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 export default function App() {
   const fileInputRef = useRef(null);
@@ -170,36 +188,167 @@ export default function App() {
     if (!message.trim() || loading) return;
 
     const userText = message.trim();
-    setMessages((prev) => [...prev, { role: "user", content: userText }]);
+    let assistantIndex = -1;
+
+    setMessages((prev) => {
+      assistantIndex = prev.length + 1;
+      return [
+        ...prev,
+        { role: "user", content: userText },
+        { role: "assistant", content: "", metadata: {}, streaming: true },
+      ];
+    });
+
     setMessage("");
     setLoading(true);
     setError("");
+    setUploadSuccess("");
 
     try {
-      const data = await sendMessage(
-        {
+      const response = await fetch(`${API_BASE_URL}/chat/stream`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({
           user_id: Number(userId),
           message: userText,
-        },
-        token
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Streaming request failed");
+      }
+
+      if (!response.body) {
+        throw new Error("Streaming not supported by browser");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      let buffer = "";
+      let streamedContent = "";
+      let streamedMetadata = {};
+      let finalPayload = null;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
+
+        for (const event of events) {
+          const lines = event
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean);
+
+          for (const line of lines) {
+            if (!line.startsWith("data:")) continue;
+
+            const raw = line.slice(5).trim();
+            if (!raw) continue;
+
+            let parsed;
+            try {
+              parsed = JSON.parse(raw);
+            } catch {
+              continue;
+            }
+
+            if (parsed.type === "meta") {
+              streamedMetadata = {
+                ...streamedMetadata,
+                session_id: parsed.session_id,
+              };
+            }
+
+            if (parsed.type === "chunk") {
+              streamedContent += parsed.content || "";
+
+              setMessages((prev) =>
+                prev.map((msg, idx) =>
+                  idx === assistantIndex
+                    ? {
+                        ...msg,
+                        content: sanitizeAssistantContent(streamedContent),
+                        metadata: streamedMetadata,
+                        streaming: true,
+                      }
+                    : msg
+                )
+              );
+            }
+
+            if (parsed.type === "done") {
+              finalPayload = parsed.payload || null;
+
+              const rawContent =
+                finalPayload?.response ||
+                finalPayload?.message ||
+                finalPayload?.assistant_message ||
+                finalPayload?.reply ||
+                streamedContent;
+
+              const cleanedContent = sanitizeAssistantContent(rawContent);
+
+              setMessages((prev) =>
+                prev.map((msg, idx) =>
+                  idx === assistantIndex
+                    ? {
+                        ...msg,
+                        content: cleanedContent,
+                        metadata:
+                          finalPayload?.metadata || streamedMetadata || {},
+                        streaming: false,
+                      }
+                    : msg
+                )
+              );
+            }
+
+            if (parsed.type === "error") {
+              throw new Error(parsed.message || "Streaming failed");
+            }
+          }
+        }
+      }
+
+      setMessages((prev) =>
+        prev.map((msg, idx) =>
+          idx === assistantIndex
+            ? {
+                ...msg,
+                content: sanitizeAssistantContent(msg.content),
+                metadata: finalPayload?.metadata || msg.metadata || {},
+                streaming: false,
+              }
+            : msg
+        )
       );
-
-      console.log("chat response data:", data);
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            data.response ||
-            data.message ||
-            data.assistant_message ||
-            data.reply ||
-            JSON.stringify(data),
-        },
-      ]);
     } catch (err) {
       setError(err.message || "Failed to send message");
+
+      setMessages((prev) =>
+        prev.map((msg, idx) =>
+          idx === assistantIndex
+            ? {
+                ...msg,
+                content:
+                  msg.content ||
+                  "Sorry, something went wrong while streaming the response.",
+                streaming: false,
+              }
+            : msg
+        )
+      );
     } finally {
       setLoading(false);
     }
@@ -383,9 +532,7 @@ export default function App() {
                   <strong style={{ color: "var(--text-h)" }}>
                     {doc.filename || doc.name || `Document ${idx + 1}`}
                   </strong>
-                  <span>
-                    {doc.type || doc.category || "Medical file"}
-                  </span>
+                  <span>{doc.type || doc.category || "Medical file"}</span>
                 </div>
               ))
             )}
@@ -453,29 +600,41 @@ export default function App() {
               </p>
             </div>
           ) : (
-            messages.map((msg, idx) => (
-              <article key={idx} className={`message ${msg.role}`}>
-                <div className="bubble">
-                  {msg.role === "assistant" ? (
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  ) : (
-                    msg.content
-                  )}
-                </div>
-              </article>
-            ))
-          )}
+            messages.map((msg, idx) => {
+              const urgency = msg?.metadata?.urgency || null;
+              const badge = urgency ? urgencyConfig[urgency] : null;
 
-          {loading ? (
-            <article className="message assistant">
-              <div className="bubble">Thinking...</div>
-            </article>
-          ) : null}
+              return (
+                <article key={idx} className={`message ${msg.role}`}>
+                  <div className="bubble">
+                    {msg.role === "assistant" && badge ? (
+                      <div className={badge.className}>{badge.label}</div>
+                    ) : null}
+
+                    {msg.role === "assistant" && msg.streaming ? (
+                      <div className="eyebrow" style={{ marginBottom: "8px" }}>
+                        Thinking...
+                      </div>
+                    ) : null}
+
+                    {msg.role === "assistant" ? (
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    ) : (
+                      <p>{msg.content}</p>
+                    )}
+                  </div>
+                </article>
+              );
+            })
+          )}
 
           <div ref={messagesEndRef} />
         </section>
 
-        <form className="composer composer-inline" onSubmit={handleComposerSubmit}>
+        <form
+          className="composer composer-inline"
+          onSubmit={handleComposerSubmit}
+        >
           <textarea
             rows="1"
             placeholder="Type your medical question..."
@@ -496,7 +655,7 @@ export default function App() {
           </button>
 
           <button type="submit" disabled={loading}>
-            {loading ? "Sending..." : "Send"}
+            {loading ? "Streaming..." : "Send"}
           </button>
         </form>
 
